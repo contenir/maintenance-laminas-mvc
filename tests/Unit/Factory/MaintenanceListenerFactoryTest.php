@@ -105,4 +105,79 @@ final class MaintenanceListenerFactoryTest extends TestCase
 
         self::assertInstanceOf(MaintenanceListener::class, $listener);
     }
+
+    public function testBuildsInMemoryRepositoryFromConfigStateWhenNoServiceRegistered(): void
+    {
+        // Site doesn't register MaintenanceRepositoryInterface — factory falls
+        // back to building one from the merged config (Laminas auto-merges
+        // config/autoload/maintenance.local.php into $config['maintenance']['state']).
+        $container = new ArrayContainer([
+            'config' => [
+                'maintenance' => [
+                    'state' => [
+                        'active'  => true,
+                        'message' => 'Down for upgrade',
+                        'since'   => '2026-01-02T03:04:05+00:00',
+                    ],
+                ],
+            ],
+        ]);
+
+        $listener = (new MaintenanceListenerFactory())($container);
+        $response = $listener(new MvcEvent());
+
+        self::assertNotNull($response, 'Active state should produce a 503 response.');
+        self::assertSame(503, $response->getStatusCode());
+        self::assertStringContainsString('Down for upgrade', $response->getContent());
+    }
+
+    public function testFallbackRepositoryReturnsInactiveWhenNoStateConfigured(): void
+    {
+        $container = new ArrayContainer([
+            'config' => ['maintenance' => []],
+        ]);
+
+        $listener = (new MaintenanceListenerFactory())($container);
+        $response = $listener(new MvcEvent());
+
+        self::assertNull($response, 'Inactive state should not intercept dispatch.');
+    }
+
+    public function testFallbackRepositoryTreatsExplicitInactiveAsNoIntercept(): void
+    {
+        $container = new ArrayContainer([
+            'config' => [
+                'maintenance' => [
+                    'state' => ['active' => false, 'message' => 'lingering'],
+                ],
+            ],
+        ]);
+
+        $listener = (new MaintenanceListenerFactory())($container);
+        $response = $listener(new MvcEvent());
+
+        self::assertNull($response);
+    }
+
+    public function testFallbackRepositoryTreatsBadSinceAsNull(): void
+    {
+        $container = new ArrayContainer([
+            'config' => [
+                'maintenance' => [
+                    'state' => [
+                        'active'  => true,
+                        'message' => 'm',
+                        'since'   => 'not-a-date',
+                    ],
+                ],
+            ],
+        ]);
+
+        // Should still build (just without parsing 'since') — no exception.
+        $listener = (new MaintenanceListenerFactory())($container);
+        $response = $listener(new MvcEvent());
+
+        self::assertNotNull($response);
+        self::assertSame(503, $response->getStatusCode());
+    }
 }

@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Contenir\Maintenance\Laminas\Mvc\Tests\Unit;
 
 use Contenir\Maintenance\Laminas\Mvc\ConfigProvider;
-use Contenir\Maintenance\Laminas\Mvc\Factory\FileRepositoryFactory;
 use Contenir\Maintenance\Laminas\Mvc\Factory\MaintenanceListenerFactory;
 use Contenir\Maintenance\Laminas\Mvc\Listener\MaintenanceListener;
-use Contenir\Maintenance\MaintenanceRepositoryInterface;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
@@ -21,16 +19,6 @@ final class ConfigProviderTest extends TestCase
 
         self::assertArrayHasKey('service_manager', $config);
         self::assertArrayHasKey('maintenance', $config);
-    }
-
-    public function testRegistersRepositoryFactory(): void
-    {
-        $deps = (new ConfigProvider())->getDependencies();
-
-        self::assertSame(
-            FileRepositoryFactory::class,
-            $deps['factories'][MaintenanceRepositoryInterface::class]
-        );
     }
 
     public function testRegistersListenerFactory(): void
@@ -47,7 +35,6 @@ final class ConfigProviderTest extends TestCase
     {
         $defaults = (new ConfigProvider())->getMaintenanceDefaults();
 
-        self::assertArrayHasKey('file', $defaults);
         self::assertArrayHasKey('retry_after', $defaults);
         self::assertArrayHasKey('bypass', $defaults);
         self::assertArrayHasKey('body_template', $defaults);
@@ -57,7 +44,6 @@ final class ConfigProviderTest extends TestCase
     {
         $defaults = (new ConfigProvider())->getMaintenanceDefaults();
 
-        self::assertNull($defaults['file']);
         self::assertNull($defaults['bypass']);
         self::assertSame(600, $defaults['retry_after']);
     }

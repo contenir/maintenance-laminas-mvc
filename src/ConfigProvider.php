@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Contenir\Maintenance\Laminas\Mvc;
 
-use Contenir\Maintenance\MaintenanceRepositoryInterface;
-
 /**
  * Returns the merged config consumed by Module::getConfig().
  *
@@ -32,8 +30,7 @@ final class ConfigProvider
     {
         return [
             'factories' => [
-                MaintenanceRepositoryInterface::class => Factory\FileRepositoryFactory::class,
-                Listener\MaintenanceListener::class   => Factory\MaintenanceListenerFactory::class,
+                Listener\MaintenanceListener::class => Factory\MaintenanceListenerFactory::class,
             ],
         ];
     }
@@ -44,7 +41,6 @@ final class ConfigProvider
     public function getMaintenanceDefaults(): array
     {
         return [
-            'file'          => null,
             'retry_after'   => 600,
             'bypass'        => null,
             'body_template' => '<!doctype html>'
