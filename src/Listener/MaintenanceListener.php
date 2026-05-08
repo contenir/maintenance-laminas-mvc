@@ -24,6 +24,15 @@ final class MaintenanceListener
         = '<!doctype html><title>503</title><h1>Service Unavailable</h1><p>%s</p>';
 
     /**
+     * Event name used to signal page-cache opt-out. Matches the
+     * EVENT_DISABLE constant published by contenir/cache-laminas-mvc.
+     * Hardcoded here so this package doesn't take a hard dependency on
+     * the cache adapter; if cache-laminas-mvc isn't installed, firing
+     * the event is a harmless no-op.
+     */
+    private const PAGECACHE_DISABLE_EVENT = 'pagecache.disable';
+
+    /**
      * @param (callable(MvcEvent): bool)|null $bypass
      */
     public function __construct(
@@ -46,6 +55,8 @@ final class MaintenanceListener
             return null;
         }
 
+        $this->disablePageCache($event);
+
         $response = new Response();
         $response->setStatusCode(503);
         $response->getHeaders()->addHeaderLine('Retry-After', (string) $this->retryAfter);
@@ -56,5 +67,16 @@ final class MaintenanceListener
         $event->stopPropagation(true);
 
         return $response;
+    }
+
+    /**
+     * Tell any listening page-cache that this 503 must not be stored.
+     * cache-laminas-mvc's CacheStrategy listens to this event on the
+     * same identifier(s) it uses for dispatch/finish; on receipt it
+     * flips its disabled flag and onFinish skips storage.
+     */
+    private function disablePageCache(MvcEvent $event): void
+    {
+        $event->getApplication()?->getEventManager()->trigger(self::PAGECACHE_DISABLE_EVENT);
     }
 }
