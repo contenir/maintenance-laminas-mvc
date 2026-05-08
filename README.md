@@ -81,7 +81,3 @@ it runs before route → controller dispatch and before any other listener
 that hasn't asked for higher priority. The exact value is exposed as
 `Module::DISPATCH_PRIORITY` if you need to coordinate with another
 listener.
-
-## License
-
-MIT
