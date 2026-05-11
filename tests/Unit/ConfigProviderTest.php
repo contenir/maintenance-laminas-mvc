@@ -13,12 +13,24 @@ use PHPUnit\Framework\TestCase;
 #[Group('unit')]
 final class ConfigProviderTest extends TestCase
 {
-    public function testInvokeReturnsServiceManagerAndMaintenanceKeys(): void
+    public function testInvokeReturnsServiceManagerKey(): void
     {
         $config = (new ConfigProvider())();
 
         self::assertArrayHasKey('service_manager', $config);
-        self::assertArrayHasKey('maintenance', $config);
+    }
+
+    public function testInvokeDoesNotContributeMaintenanceKeyToMergedConfig(): void
+    {
+        // The factory is the canonical source of maintenance defaults so it
+        // can tell user-supplied body_template/body_template_path values
+        // apart from package defaults after Laminas merge. If this method
+        // ever starts returning a 'maintenance' key, the factory's
+        // precedence logic breaks (body_template appears always set even
+        // when the site only set body_template_path).
+        $config = (new ConfigProvider())();
+
+        self::assertArrayNotHasKey('maintenance', $config);
     }
 
     public function testRegistersListenerFactory(): void

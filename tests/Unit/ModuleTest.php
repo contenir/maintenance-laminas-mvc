@@ -23,7 +23,8 @@ final class ModuleTest extends TestCase
         $config = (new Module())->getConfig();
 
         self::assertArrayHasKey('service_manager', $config);
-        self::assertArrayHasKey('maintenance', $config);
+        // 'maintenance' is intentionally absent — see ConfigProvider::__invoke.
+        self::assertArrayNotHasKey('maintenance', $config);
     }
 
     public function testAttachListenerRegistersListenerOnDispatchEvent(): void
