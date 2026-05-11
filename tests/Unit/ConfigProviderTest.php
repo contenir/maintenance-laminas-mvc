@@ -38,6 +38,7 @@ final class ConfigProviderTest extends TestCase
         self::assertArrayHasKey('retry_after', $defaults);
         self::assertArrayHasKey('bypass', $defaults);
         self::assertArrayHasKey('body_template', $defaults);
+        self::assertArrayHasKey('body_template_path', $defaults);
     }
 
     public function testMaintenanceDefaultsAreUnconfigured(): void
@@ -46,5 +47,32 @@ final class ConfigProviderTest extends TestCase
 
         self::assertNull($defaults['bypass']);
         self::assertSame(600, $defaults['retry_after']);
+    }
+
+    public function testDefaultBodyTemplatePathPointsAtBundledFile(): void
+    {
+        $path = ConfigProvider::defaultBodyTemplatePath();
+
+        self::assertFileExists($path);
+        self::assertStringEndsWith('view/contenir/maintenance/index.phtml', $path);
+    }
+
+    public function testBundledBodyTemplateContainsExactlyOneSprintfPlaceholder(): void
+    {
+        // Mirror the factory's include + output-buffering load so PHP comments
+        // (which legitimately mention `%s` in docs) are excluded — only `%s`
+        // tokens in the rendered HTML count.
+        $path     = ConfigProvider::defaultBodyTemplatePath();
+        $rendered = (static function () use ($path): string {
+            ob_start();
+            include $path;
+            return (string) ob_get_clean();
+        })();
+
+        self::assertSame(
+            1,
+            substr_count($rendered, '%s'),
+            'rendered bundled template must have exactly one %s placeholder',
+        );
     }
 }

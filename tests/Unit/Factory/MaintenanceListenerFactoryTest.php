@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Contenir\Maintenance\Laminas\Mvc\Tests\Unit\Factory;
 
+use Contenir\Maintenance\Laminas\Mvc\ConfigProvider;
 use Contenir\Maintenance\Laminas\Mvc\Factory\MaintenanceListenerFactory;
 use Contenir\Maintenance\Laminas\Mvc\Listener\MaintenanceListener;
 use Contenir\Maintenance\Laminas\Mvc\Tests\Unit\Factory\Stub\ArrayContainer;
@@ -19,6 +20,29 @@ use RuntimeException;
 #[Group('factory')]
 final class MaintenanceListenerFactoryTest extends TestCase
 {
+    /**
+     * @var list<string> Temporary file paths written by tests; removed in tearDown.
+     */
+    private array $tempFiles = [];
+
+    protected function tearDown(): void
+    {
+        foreach ($this->tempFiles as $path) {
+            if (is_file($path)) {
+                @unlink($path);
+            }
+        }
+        $this->tempFiles = [];
+    }
+
+    private function writeTempTemplate(string $extension, string $contents): string
+    {
+        $path = sys_get_temp_dir() . '/contenir-maint-' . bin2hex(random_bytes(8)) . '.' . $extension;
+        file_put_contents($path, $contents);
+        $this->tempFiles[] = $path;
+        return $path;
+    }
+
     private function container(array $maintenanceConfig, ?MaintenanceRepositoryInterface $repo = null): ArrayContainer
     {
         return new ArrayContainer([
@@ -157,6 +181,102 @@ final class MaintenanceListenerFactoryTest extends TestCase
         $response = $listener(new MvcEvent());
 
         self::assertNull($response);
+    }
+
+    public function testLoadsBodyTemplateFromRawHtmlPath(): void
+    {
+        $path = $this->writeTempTemplate('html', '<p>HTML wrapper: %s</p>');
+
+        $container = $this->container(
+            ['body_template_path' => $path],
+            new InMemoryRepository(MaintenanceState::active('down for upgrade')),
+        );
+
+        $listener = (new MaintenanceListenerFactory())($container);
+        $response = $listener(new MvcEvent());
+
+        self::assertSame('<p>HTML wrapper: down for upgrade</p>', $response->getContent());
+    }
+
+    public function testEvaluatesPhpInsideBodyTemplatePhtmlPath(): void
+    {
+        // Demonstrates that .phtml is `include`d with output buffering rather
+        // than read raw — the PHP expression is evaluated at config-load time.
+        $path = $this->writeTempTemplate('phtml', '<p><?= strtoupper("hello") ?>: %s</p>');
+
+        $container = $this->container(
+            ['body_template_path' => $path],
+            new InMemoryRepository(MaintenanceState::active('soon')),
+        );
+
+        $listener = (new MaintenanceListenerFactory())($container);
+        $response = $listener(new MvcEvent());
+
+        self::assertSame('<p>HELLO: soon</p>', $response->getContent());
+    }
+
+    public function testExplicitBodyTemplateOverridesBodyTemplatePath(): void
+    {
+        $path = $this->writeTempTemplate('html', 'NEVER USED: %s');
+
+        $container = $this->container(
+            [
+                'body_template'      => 'INLINE: %s',
+                'body_template_path' => $path,
+            ],
+            new InMemoryRepository(MaintenanceState::active('msg')),
+        );
+
+        $listener = (new MaintenanceListenerFactory())($container);
+        $response = $listener(new MvcEvent());
+
+        self::assertSame('INLINE: msg', $response->getContent());
+    }
+
+    public function testThrowsWhenBodyTemplatePathIsUnreadable(): void
+    {
+        $container = $this->container(
+            ['body_template_path' => '/this/path/does/not/exist.phtml'],
+            new InMemoryRepository(MaintenanceState::active('m')),
+        );
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('body_template_path');
+
+        (new MaintenanceListenerFactory())($container);
+    }
+
+    public function testDefaultBodyTemplatePathRendersBundledTemplate(): void
+    {
+        // No config at all — factory should load the bundled
+        // view/contenir/maintenance/index.phtml via the default
+        // body_template_path and sprintf the admin message in.
+        $container = new ArrayContainer([
+            MaintenanceRepositoryInterface::class
+                => new InMemoryRepository(MaintenanceState::active('Down for upgrade')),
+        ]);
+
+        $listener = (new MaintenanceListenerFactory())($container);
+        $response = $listener(new MvcEvent());
+
+        $body = $response->getContent();
+        self::assertStringContainsString('Down for upgrade', $body, 'admin message reaches body');
+        self::assertStringContainsString('<!doctype html>', $body, 'bundled doc is rendered');
+        self::assertStringContainsString('maintenance__title', $body, 'bundled CSS class is present');
+    }
+
+    public function testFallsBackToInlineBodyTemplateWhenPathIsExplicitlyNull(): void
+    {
+        $container = $this->container(
+            ['body_template_path' => null],
+            new InMemoryRepository(MaintenanceState::active('msg')),
+        );
+
+        $listener = (new MaintenanceListenerFactory())($container);
+        $response = $listener(new MvcEvent());
+
+        self::assertStringContainsString('msg', $response->getContent());
+        self::assertStringContainsString('Service Unavailable', $response->getContent());
     }
 
     public function testFallbackRepositoryTreatsBadSinceAsNull(): void

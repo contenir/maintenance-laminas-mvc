@@ -1,0 +1,72 @@
+<?php
+/**
+ * Default 503 body shipped by contenir/maintenance-laminas-mvc.
+ *
+ * The factory `include`s this file under output buffering (in an isolated
+ * closure) at config-load time. The resulting string is then handed to the
+ * listener as the sprintf body_template — so the single %s below is the
+ * admin message placeholder and no other unescaped `%` may appear in the
+ * document.
+ *
+ * Override by setting `maintenance.body_template_path` to a Site-owned path
+ * (any extension; .phtml/.php gets PHP evaluation, anything else is loaded
+ * raw), or `maintenance.body_template` to an inline string.
+ *
+ * Self-contained on purpose: no layout, neutral system fonts, inline styles
+ * — the 503 must render even when the consumer's asset pipeline is the very
+ * thing under maintenance. CSS uses only vw / vh / rem to avoid `%` units.
+ */
+?><!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>We&rsquo;ll be back shortly</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; min-height: 100vh; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                "Helvetica Neue", Arial, sans-serif;
+            background: #fafafa;
+            color: #1f1f1f;
+            line-height: 1.5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem 1.5rem;
+        }
+        .maintenance__eyebrow {
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            font-size: 0.8125rem;
+            color: #6b6b6b;
+            margin: 0 0 1rem;
+        }
+        .maintenance__title {
+            font-weight: 600;
+            font-size: clamp(1.5rem, 4vw, 2.25rem);
+            line-height: 1.2;
+            margin: 0 0 1rem;
+            max-width: 36rem;
+        }
+        .maintenance__body {
+            font-size: 1rem;
+            max-width: 36rem;
+            margin: 0;
+            color: #4a4a4a;
+        }
+        .maintenance__body p { margin: 0 0 1rem; }
+        .maintenance__body p:last-child { margin-bottom: 0; }
+    </style>
+</head>
+<body class="maintenance">
+    <p class="maintenance__eyebrow">We&rsquo;ll be back shortly</p>
+    <h1 class="maintenance__title">The site is briefly down for maintenance</h1>
+    <div class="maintenance__body">%s</div>
+</body>
+</html>
